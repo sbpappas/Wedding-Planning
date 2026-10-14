@@ -1,7 +1,7 @@
 <title>Our Wedding Planner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,600;1,6..96,400&family=Karla:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Karla:wght@400;500;700&display=swap">
 <style>
 /* Layout: stationery-style masthead (names, date, countdown), sticky tab rail, one working panel per tab */
 :root {
@@ -42,7 +42,8 @@ button { cursor: pointer; }
 
 /* Masthead */
 .mast { padding-block: 36px 24px; display: grid; gap: 20px; grid-template-columns: 1fr auto; align-items: end; }
-.mast h1 { font-size: clamp(34px, 7vw, 56px); line-height: 1.05; letter-spacing: -.01em; }
+/* Small optical size + medium weight: same Bodoni character, sturdier hairlines at display size */
+.mast h1 { font-size: clamp(34px, 7vw, 56px); line-height: 1.1; letter-spacing: 0; font-weight: 500; font-optical-sizing: none; font-variation-settings: "opsz" 11; }
 .mast h1 em { font-style: italic; color: var(--rose); padding-inline: .08em; }
 .mast .when { margin-top: 8px; color: var(--muted); }
 .count { text-align: right; }
@@ -205,7 +206,7 @@ pre.email { white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.55 var(
   <header class="mast">
     <div>
       <div class="eyebrow">The wedding of</div>
-      <h1 id="names">Samuel <em>&amp;</em> Partner</h1>
+      <h1 id="names">Alejandra <em>&amp;</em> Samuel</h1>
       <div class="when" id="when">Date not set yet</div>
     </div>
     <div class="count" id="count"></div>
@@ -323,7 +324,7 @@ pre.email { white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.55 var(
 
   // ---------- masthead ----------
   function renderMast() {
-    $("#names").innerHTML = `${esc(me())} <em>&amp;</em> ${esc(partner())}`;
+    $("#names").innerHTML = `${esc(partner())} <em>&amp;</em> ${esc(me())}`;
     const w = weddingDate();
     const where = (S.settings.location || "").trim();
     $("#when").textContent = w
