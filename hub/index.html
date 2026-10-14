@@ -5,39 +5,29 @@
 <style>
 /* Layout: stationery-style masthead (names, date, countdown), sticky tab rail, one working panel per tab */
 :root {
-  --bg: #F2F5F1;
+  /* Light only, by request: the teal and pink from the dark palette, deepened just enough to read on light ground */
+  --bg: #F4F8F6;
   --surface: #FFFFFF;
-  --ink: #1F2B27;
-  --muted: #5F6E67;
-  --line: #D9E1DA;
-  --accent: #2F5D50;
+  --ink: #1C2B27;
+  --muted: #5A6B65;
+  --line: #D6E4DE;
+  --accent: #2A7A66;
   --accent-ink: #FFFFFF;
-  --accent-soft: #E2ECE6;
-  --rose: #A85B67;
-  --rose-soft: #F5E6E8;
+  --accent-soft: #DDF0E8;
+  --teal-bright: #8CC3AE;
+  --rose: #B84D64;
+  --rose-bright: #E3A1AB;
+  --rose-soft: #FBE7EA;
   --ok: #2E7D4F;
-  --warn: #9A5A12;
+  --warn: #92560F;
   --warn-soft: #FBEEDD;
   --danger: #B3261E;
   --danger-soft: #FBE4E2;
-  --shadow: 0 1px 2px rgba(31,43,39,.06), 0 4px 16px rgba(31,43,39,.05);
+  --shadow: 0 1px 2px rgba(28,43,39,.06), 0 4px 16px rgba(28,43,39,.05);
   --f-display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
   --f-body: "Karla", system-ui, -apple-system, "Segoe UI", sans-serif;
   --r: 10px;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #111614; --surface: #19201D; --ink: #E6ECE8; --muted: #9AA8A1; --line: #2B3531;
-    --accent: #8CC3AE; --accent-ink: #0F1A16; --accent-soft: #21302A; --rose: #E3A1AB; --rose-soft: #3A2529;
-    --ok: #7CC79A; --warn: #E2A866; --warn-soft: #3A2C1A; --danger: #F08A80; --danger-soft: #3D2120;
-    --shadow: 0 1px 2px rgba(0,0,0,.3); color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #111614; --surface: #19201D; --ink: #E6ECE8; --muted: #9AA8A1; --line: #2B3531;
-  --accent: #8CC3AE; --accent-ink: #0F1A16; --accent-soft: #21302A; --rose: #E3A1AB; --rose-soft: #3A2529;
-  --ok: #7CC79A; --warn: #E2A866; --warn-soft: #3A2C1A; --danger: #F08A80; --danger-soft: #3D2120;
-  --shadow: 0 1px 2px rgba(0,0,0,.3); color-scheme: dark;
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
@@ -110,7 +100,7 @@ label.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 
 /* Tasks */
 .progress { height: 6px; border-radius: 999px; background: var(--accent-soft); overflow: hidden; margin-bottom: 20px; }
-.progress span { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s; }
+.progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--teal-bright), var(--accent)); border-radius: 999px; transition: width .3s; }
 .group { margin-bottom: 22px; }
 .group > header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-bottom: 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
 .group > header h3 { font-size: 19px; }
@@ -155,6 +145,39 @@ tbody tr:hover td { background: var(--accent-soft); }
 .vcard .name { font-weight: 700; }
 .vcard .sub { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .stage .none { font-size: 13px; color: var(--muted); padding: 10px 0; }
+.vcard .score { font-size: 12px; font-weight: 700; color: var(--accent); }
+
+/* Vendor comparison */
+.cmpnav { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.brief { padding: 18px 20px; display: grid; gap: 12px; margin-bottom: 16px; }
+.brief .top, .vdetail header { display: flex; gap: 12px; justify-content: space-between; align-items: start; }
+.brief h3 { font-size: 22px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; margin: 0; }
+.facts dt { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.brief .notice { margin: 0; }
+.cmp td:first-child, .cmp th:first-child { width: 1%; }
+.cmp .vname { font-weight: 700; }
+.cmp .meter { min-width: 60px; }
+.vdetails { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 20px; }
+.vdetail { padding: 18px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.vdetail header > div { min-width: 0; flex: 1; }
+.vdetail h3 { font-size: 20px; }
+.vdetail .sub { font-size: 13px; color: var(--muted); }
+.rank { font-family: var(--f-display); font-size: 28px; line-height: 1; color: var(--rose); min-width: 1.2em; }
+.vdetail .links { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; }
+.vdetail .why { margin: 0; font-size: 15px; }
+.scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.scores div { background: var(--accent-soft); border-radius: 8px; padding: 6px 8px; text-align: center; }
+.scores b { display: block; font-family: var(--f-display); font-size: 20px; font-weight: 400; }
+.scores span { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+blockquote { margin: 0; padding: 8px 0 8px 14px; border-left: 3px solid var(--rose-bright); font-family: var(--f-display); font-style: italic; font-size: 15px; }
+blockquote cite { display: block; font-family: var(--f-body); font-style: normal; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.flag { font-size: 14px; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+details summary { cursor: pointer; font-weight: 500; font-size: 14px; color: var(--accent); }
+pre.email { white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.55 var(--f-body); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 8px 0 0; max-height: 320px; overflow: auto; }
+.vdetail .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.vdetail.passed { opacity: .6; }
 
 /* Ideas */
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
@@ -221,7 +244,7 @@ tbody tr:hover td { background: var(--accent-soft); }
   const IDEA_TAGS = ["Ceremony", "Reception", "Attire", "Flowers", "Stationery", "Food & drink", "Music", "Palette", "Other"];
 
   // ---------- state ----------
-  const S = { settings: {}, decisions: [], tasks: [], budget: [], vendors: [], ideas: [], loaded: false };
+  const S = { settings: {}, decisions: [], tasks: [], budget: [], vendors: [], ideas: [], research: [], loaded: false };
   let db = null, readOnly = false;
   const store = {
     get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
@@ -229,6 +252,8 @@ tbody tr:hover td { background: var(--accent-soft); }
   };
   let tab = store.get("tab", "tasks");
   let taskFilter = store.get("taskFilter", "open");
+  let vendorView = store.get("vendorView", "pipeline");
+  let compareKey = store.get("compareKey", "");
 
   // ---------- helpers ----------
   const $ = (s) => document.querySelector(s);
@@ -277,7 +302,7 @@ tbody tr:hover td { background: var(--accent-soft); }
     db = window.claude?.use ? await window.claude.use("db") : null;
     if (!db) { renderNotice(); return; }
     db.doc("meta/settings").onSnapshot((s) => { S.settings = s.exists ? { ...s.data() } : {}; S.loaded = true; render(); }, () => {});
-    for (const c of ["decisions", "tasks", "budget", "vendors", "ideas"]) {
+    for (const c of ["decisions", "tasks", "budget", "vendors", "ideas", "research"]) {
       db.collection(c).onSnapshot((snap) => {
         S[c] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         S.loaded = true; render();
@@ -449,19 +474,111 @@ tbody tr:hover td { background: var(--accent-soft); }
       </div>`;
   }
 
+  const vendorKey = (v) => (v.type || "").trim() || v.category || "Other";
+  const score = (v) => {
+    const parts = [v.scoreStyle, v.scoreBudget, v.scoreReviews].map(num);
+    return parts.some((x) => x != null) ? parts.reduce((a, x) => a + (x || 0), 0) : null;
+  };
+  const extUrl = (u) => /^https?:\/\//.test(u) ? u : "https://" + u;
+  const igUrl = (h) => "https://instagram.com/" + String(h).replace(/^@/, "");
+  const shortCount = (n) => n == null ? "" : n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, "") + "k" : String(n);
+  const priceRange = (v) => v.priceLow != null && v.priceHigh != null ? `${money(v.priceLow)}–${money(v.priceHigh)}` : v.priceLow != null ? `from ${money(v.priceLow)}` : v.price != null ? money(v.price) : "—";
+  const stageLabel = (k) => (STAGES.find(([s]) => s === k) || STAGES[0])[1];
+  function emailFor(v) {
+    if (v.emailDraft) return v.emailDraft;
+    const b = S.research.find((r) => r.type === vendorKey(v));
+    return b?.template ? b.template.replaceAll("{name}", v.name || "") : "";
+  }
+
   function viewVendors() {
-    const head = `<div class="bar"><h2>Vendors</h2><button class="btn primary" data-add="vendors">Add a vendor</button></div>`;
-    if (!S.vendors.length) return head + emptyState("No vendors yet", "Track every venue, caterer and photographer you look at, from first search to signed contract.");
-    return head + `<div class="stages">${STAGES.map(([k, l]) => {
+    const vb = (k, l) => `<button type="button" data-vview="${k}" aria-pressed="${vendorView === k}">${l}</button>`;
+    const head = `<div class="bar"><h2>Vendors</h2><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div class="filters" role="group" aria-label="Vendor view">${vb("pipeline", "Pipeline")}${vb("compare", "Compare")}</div>
+      <button class="btn primary" data-add="vendors">Add a vendor</button></div></div>`;
+    return head + (vendorView === "compare" ? viewCompare() : viewPipeline());
+  }
+
+  function viewPipeline() {
+    if (!S.vendors.length) return emptyState("No vendors yet", "Track every venue, caterer and photographer you look at, from first search to signed contract.");
+    return `<div class="stages">${STAGES.map(([k, l]) => {
       const vs = S.vendors.filter((v) => (v.stage || "researching") === k).sort(byOrder);
       if (k === "passed" && !vs.length) return "";
       return `<div class="stage"><h3>${l} <span class="n">${vs.length}</span></h3>
         ${vs.length ? vs.map((v) => `<button class="panel vcard" data-edit="vendors" data-id="${esc(v.id)}">
           <span class="name">${esc(v.name)}</span>
-          <span class="sub">${esc(v.category || "")}${v.price != null ? ` · <span class="num">${money(v.price)}</span>` : ""}</span>
+          <span class="sub">${esc(vendorKey(v))}${v.price != null || v.priceLow != null ? ` · <span class="num">${priceRange(v)}</span>` : ""}</span>
+          ${score(v) != null ? `<span class="score num">Scored ${score(v)}/30</span>` : ""}
           ${v.notes ? `<span class="sub">${esc(v.notes.length > 90 ? v.notes.slice(0, 90) + "…" : v.notes)}</span>` : ""}
         </button>`).join("") : `<div class="none">None yet</div>`}</div>`;
     }).join("")}</div>`;
+  }
+
+  function viewCompare() {
+    const keys = [...new Set([
+      ...S.research.map((r) => (r.type || "").trim()).filter(Boolean),
+      ...S.vendors.filter((v) => score(v) != null || (v.type || "").trim()).map(vendorKey),
+    ])];
+    if (!keys.length) return emptyState("No vendor research yet",
+      "Start a research brief for the vendor you're hiring next. Claude finds the top options near you, scores the best five on style, budget and reviews, and lines them up here side by side with an outreach email for each.")
+      + `<div style="text-align:center;margin-top:14px"><button class="btn primary" data-add="research">Start a research brief</button></div>`;
+    const key = keys.includes(compareKey) ? compareKey : keys[0];
+    const brief = S.research.find((r) => (r.type || "").trim() === key);
+    const vs = S.vendors.filter((v) => vendorKey(v) === key).sort((a, b) =>
+      (a.stage === "passed") - (b.stage === "passed") || (score(b) ?? -1) - (score(a) ?? -1) || byOrder(a, b));
+    let rank = 0;
+    const ranked = vs.map((v) => ({ v, rank: v.stage !== "passed" && score(v) != null ? ++rank : null, s: score(v) }));
+
+    const nav = `<div class="cmpnav"><div class="filters">${keys.map((k) => `<button type="button" data-compare="${esc(k)}" aria-pressed="${k === key}">${esc(k)}</button>`).join("")}</div>
+      <button class="btn" data-add="research">New research brief</button></div>`;
+
+    const briefHtml = brief ? `<section class="panel brief">
+        <div class="top"><div><div class="eyebrow">Research brief</div><h3>${esc(key)}</h3></div>
+          <button class="btn" data-edit="research" data-id="${esc(brief.id)}">Edit brief</button></div>
+        <dl class="facts">
+          <div><dt>Style</dt><dd>${esc(brief.style || "—")}</dd></div>
+          <div><dt>Budget</dt><dd class="num">${brief.budgetLow != null || brief.budgetHigh != null ? `${money(brief.budgetLow)}–${money(brief.budgetHigh)}` : "—"}</dd></div>
+          <div><dt>Deal-breakers</dt><dd>${esc(brief.dealBreakers || "None listed")}</dd></div>
+        </dl>
+        ${brief.status === "requested" ? `<div class="notice">Ready for research. In Claude Code, say: <b>"Run vendor research for the ${esc(key)} brief in the wedding hub."</b></div>` : ""}
+        ${brief.sendTip ? `<div class="muted" style="font-size:14px"><b>When to send:</b> ${esc(brief.sendTip)}</div>` : ""}
+      </section>`
+      : `<section class="panel brief"><div class="top"><div><div class="eyebrow">No brief yet</div><h3>${esc(key)}</h3></div>
+        <button class="btn" data-add="research">Add a brief</button></div></section>`;
+
+    if (!vs.length) return nav + briefHtml + emptyState("Nothing to compare yet", "Once research runs, the top five options appear here, ranked.");
+
+    const table = `<div class="panel tablewrap"><table class="cmp">
+      <thead><tr><th>#</th><th>Vendor</th><th>Score</th><th class="r">Style</th><th class="r">Budget</th><th class="r">Reviews</th><th class="r">Price</th><th>Rating</th><th>Stage</th></tr></thead>
+      <tbody>${ranked.map(({ v, rank, s }) => `<tr data-edit="vendors" data-id="${esc(v.id)}">
+        <td class="num">${rank ?? ""}</td>
+        <td><span class="vname">${esc(v.name)}</span></td>
+        <td class="num">${s != null ? `${s}/30<div class="meter"><span style="width:${(s / 30 * 100).toFixed(0)}%"></span></div>` : "—"}</td>
+        <td class="r num">${v.scoreStyle ?? "—"}</td><td class="r num">${v.scoreBudget ?? "—"}</td><td class="r num">${v.scoreReviews ?? "—"}</td>
+        <td class="r num" style="white-space:nowrap">${priceRange(v)}</td>
+        <td class="num" style="white-space:nowrap">${v.rating != null ? `★ ${esc(v.rating)}` : ""}${v.reviewCount != null ? ` · ${esc(v.reviewCount)}` : ""}</td>
+        <td><span class="pill ${v.stage === "booked" ? "" : "quiet"}">${stageLabel(v.stage)}</span></td>
+      </tr>`).join("")}</tbody></table></div>`;
+
+    const cards = `<div class="vdetails">${ranked.map(({ v, rank, s }) => {
+      const email = emailFor(v);
+      return `<article class="panel vdetail${v.stage === "passed" ? " passed" : ""}">
+        <header>${rank ? `<span class="rank num">${rank}</span>` : ""}<div><h3>${esc(v.name)}</h3>${v.business && v.business !== v.name ? `<div class="sub">${esc(v.business)}</div>` : ""}</div>
+          <span class="pill ${v.stage === "booked" ? "" : "quiet"}">${stageLabel(v.stage)}</span></header>
+        <div class="links">${v.link ? `<a href="${esc(extUrl(v.link))}" target="_blank" rel="noopener">Website</a>` : ""}${v.instagram ? `<a href="${esc(igUrl(v.instagram))}" target="_blank" rel="noopener">@${esc(String(v.instagram).replace(/^@/, ""))}</a>${v.followers != null ? `<span class="muted num">${shortCount(v.followers)} followers</span>` : ""}` : ""}</div>
+        ${s != null ? `<div class="scores"><div><b class="num">${v.scoreStyle ?? "—"}</b><span>Style</span></div><div><b class="num">${v.scoreBudget ?? "—"}</b><span>Budget</span></div><div><b class="num">${v.scoreReviews ?? "—"}</b><span>Reviews</span></div></div>` : ""}
+        ${v.whyFit ? `<p class="why">${esc(v.whyFit)}</p>` : ""}
+        <dl class="facts"><div><dt>Price for your size</dt><dd class="num">${priceRange(v)}</dd></div>
+          <div><dt>Reviews</dt><dd class="num">${v.rating != null ? `★ ${esc(v.rating)}` : "—"}${v.reviewCount != null ? ` from ${esc(v.reviewCount)}` : ""}</dd></div>
+          ${v.contact ? `<div><dt>Contact</dt><dd>${esc(v.contact)}</dd></div>` : ""}</dl>
+        ${v.reviewQuote ? `<blockquote>“${esc(v.reviewQuote)}”${v.reviewDate ? `<cite>${esc(v.reviewDate)}</cite>` : ""}</blockquote>` : ""}
+        ${v.redFlag ? `<div class="flag"><b>Watch out:</b> ${esc(v.redFlag)}</div>` : ""}
+        ${email ? `<details id="det-${esc(v.id)}"><summary>Outreach email</summary><pre class="email" id="email-${esc(v.id)}">${esc(email)}</pre></details>` : ""}
+        <div class="acts">${email ? `<button class="btn primary" data-copy="${esc(v.id)}">Copy email</button>` : ""}
+          ${(v.stage || "researching") === "researching" ? `<button class="btn" data-contacted="${esc(v.id)}">Mark contacted</button>` : ""}
+          <button class="btn" data-edit="vendors" data-id="${esc(v.id)}">Edit</button></div>
+      </article>`;
+    }).join("")}</div>`;
+    return nav + briefHtml + table + cards;
   }
 
   function viewIdeas() {
@@ -519,7 +636,36 @@ tbody tr:hover td { background: var(--accent-soft); }
       ["contact", "Contact", "text"],
       ["link", "Website", "text"],
       ["notes", "Notes", "textarea"],
+      ["_h", "Research details", "heading"],
+      ["type", "Vendor type (e.g. Photographer)", "text"],
+      ["business", "Business name", "text"],
+      ["instagram", "Instagram handle", "text"],
+      ["followers", "Instagram followers", "number"],
+      ["rating", "Average rating (out of 5)", "number"],
+      ["reviewCount", "Number of reviews", "number"],
+      ["priceLow", "Typical price, low (USD)", "number"],
+      ["priceHigh", "Typical price, high (USD)", "number"],
+      ["scoreStyle", "Style match (0–10)", "number"],
+      ["scoreBudget", "Budget fit (0–10)", "number"],
+      ["scoreReviews", "Review strength (0–10)", "number"],
+      ["whyFit", "Why they fit", "textarea"],
+      ["reviewQuote", "Recent review quote", "textarea"],
+      ["reviewDate", "Review date and source", "text"],
+      ["redFlag", "Red flag", "text"],
+      ["emailDraft", "Outreach email", "textarea"],
     ], defaults: { stage: "researching", category: "Venue" } },
+    research: { name: "research brief", fields: () => [
+      ["type", "Vendor type (e.g. Photographer)", "text"],
+      ["category", "Budget category", "select", CATEGORIES.map((c) => [c, c])],
+      ["style", "Your style in 3–5 words", "text"],
+      ["budgetLow", "Budget for this vendor, low (USD)", "number"],
+      ["budgetHigh", "Budget for this vendor, high (USD)", "number"],
+      ["dealBreakers", "Deal-breakers", "textarea"],
+      ["status", "Status", "select", [["requested", "Ready for Claude to research"], ["done", "Research done"], ["draft", "Still drafting"]]],
+      ["_h", "Filled in after research", "heading"],
+      ["template", "Email template for the other options ({name} = vendor)", "textarea"],
+      ["sendTip", "Best time to send", "text"],
+    ], defaults: { status: "requested", category: "Photo & video" } },
     ideas: { name: "idea", fields: () => [
       ["title", "Title", "text"],
       ["tag", "Tag", "select", IDEA_TAGS.map((t) => [t, t])],
@@ -528,7 +674,7 @@ tbody tr:hover td { background: var(--accent-soft); }
       ["color", "Color code (e.g. #8FA89B)", "text"],
     ], defaults: { tag: "Other" } },
   };
-  const NUMERIC = new Set(["pct", "quoted", "paid", "price", "depositAmount"]);
+  const NUMERIC = new Set(["pct", "quoted", "paid", "price", "depositAmount", "followers", "rating", "reviewCount", "priceLow", "priceHigh", "scoreStyle", "scoreBudget", "scoreReviews", "budgetLow", "budgetHigh"]);
 
   function openEditor(col, id) {
     const sc = SCHEMAS[col]; if (!sc) return;
@@ -537,10 +683,11 @@ tbody tr:hover td { background: var(--accent-soft); }
     const fields = sc.fields().map(([k, label, type, opts]) => {
       const fid = `ed-${col}-${k}`;
       const v = item[k];
+      if (type === "heading") return `<div class="eyebrow" style="margin-top:8px;padding-top:12px;border-top:1px solid var(--line)">${esc(label)}</div>`;
       if (type === "select") return `<label class="f">${esc(label)}<select id="${fid}" name="${k}">${opt(opts, v)}</select></label>`;
       if (type === "textarea") return `<label class="f">${esc(label)}<textarea id="${fid}" name="${k}">${esc(v || "")}</textarea></label>`;
       if (type === "check") return `<label class="check"><input type="checkbox" id="${fid}" name="${k}" ${v ? "checked" : ""}> ${esc(label)}</label>`;
-      return `<label class="f">${esc(label)}<input id="${fid}" name="${k}" type="${type}" ${type === "number" ? 'step="any" min="0"' : ""} value="${esc(v ?? "")}"${k === "title" || k === "name" || k === "category" && type === "text" ? " required" : ""}></label>`;
+      return `<label class="f">${esc(label)}<input id="${fid}" name="${k}" type="${type}" ${type === "number" ? 'step="any" min="0"' : ""} value="${esc(v ?? "")}"${k === "title" || k === "name" || (col === "research" && k === "type") || (k === "category" && type === "text") ? " required" : ""}></label>`;
     }).join("");
     $("#layer").innerHTML = `<div class="scrim" id="scrim"><form class="panel sheet" id="editor">
       <h2>${id ? "Edit" : "New"} ${esc(sc.name)}</h2>${fields}
@@ -562,20 +709,39 @@ tbody tr:hover td { background: var(--accent-soft); }
       e.preventDefault();
       const data = id ? {} : { ...sc.defaults };
       for (const [k, , type] of sc.fields()) {
+        if (type === "heading") continue;
         const el = form.elements[k];
         if (type === "check") data[k] = el.checked;
         else if (NUMERIC.has(k)) data[k] = num(el.value);
         else data[k] = el.value.trim();
       }
       if (!id && col === "tasks") data.done = !!data.done;
-      if (await save(col, id, data)) { close(); toast("Saved"); }
+      if (await save(col, id, data)) {
+        if (col === "research") { compareKey = data.type; vendorView = "compare"; store.set("compareKey", compareKey); store.set("vendorView", vendorView); render(); }
+        close(); toast("Saved");
+      }
     };
   }
 
   // ---------- events ----------
   document.addEventListener("click", async (e) => {
-    const t = e.target.closest("[data-tab],[data-add],[data-edit],[data-filter]");
+    const t = e.target.closest("[data-tab],[data-add],[data-edit],[data-filter],[data-vview],[data-compare],[data-copy],[data-contacted]");
     if (!t) return;
+    if (t.dataset.vview) { vendorView = t.dataset.vview; store.set("vendorView", vendorView); render(); return; }
+    if (t.dataset.compare) { compareKey = t.dataset.compare; store.set("compareKey", compareKey); render(); return; }
+    if (t.dataset.contacted) { if (await save("vendors", t.dataset.contacted, { stage: "contacted" })) toast("Moved to Contacted"); return; }
+    if (t.dataset.copy) {
+      const v = S.vendors.find((x) => x.id === t.dataset.copy); if (!v) return;
+      const text = emailFor(v);
+      try { await navigator.clipboard.writeText(text); toast("Email copied"); }
+      catch {
+        const det = document.getElementById("det-" + v.id), pre = document.getElementById("email-" + v.id);
+        if (det) det.open = true;
+        if (pre) { const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+        toast("Email selected. Press Ctrl+C or Cmd+C to copy.");
+      }
+      return;
+    }
     if (t.dataset.tab) { tab = t.dataset.tab; store.set("tab", tab); render(); return; }
     if (t.dataset.filter) { taskFilter = t.dataset.filter; store.set("taskFilter", taskFilter); render(); return; }
     if (t.dataset.add) { openEditor(t.dataset.add); return; }
