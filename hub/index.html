@@ -380,7 +380,7 @@ pre.email { white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.55 var(
         <label class="f">Your name<input id="b-me" name="myName" value="${esc(s.myName || "Samuel")}"></label>
         <label class="f">Partner's name<input id="b-partner" name="partnerName" value="${esc(s.partnerName || "")}" placeholder="Partner"></label>
         <label class="f">Wedding date<input id="b-date" type="date" name="weddingDate" value="${esc(s.weddingDate || "")}"></label>
-        <label class="f">Total budget (USD)<input id="b-budget" type="number" min="0" step="500" name="budget" value="${esc(s.budget ?? "")}" placeholder="e.g. 30000"></label>
+        <label class="f">Total budget (USD)<input id="b-budget" type="number" min="0" step="500" name="budget" value="${esc(s.budget ?? "")}" placeholder="e.g. 10000"></label>
         <label class="f">Guest count<input id="b-guests" type="number" min="0" name="guests" value="${esc(s.guests ?? "")}" placeholder="e.g. 120"></label>
         <label class="f">Location<input id="b-loc" name="location" value="${esc(s.location || "")}" placeholder="City or venue"></label>
         <div style="grid-column:1/-1;display:flex;justify-content:flex-end"><button class="btn primary" type="submit">Save basics</button></div>
