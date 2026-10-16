@@ -13,11 +13,22 @@
   const CATEGORIES = ["Venue", "Catering", "Photo & video", "Attire & beauty", "Flowers & decor", "Music & entertainment", "Stationery", "Rings", "Officiant & ceremony", "Cake & desserts", "Transport", "Favors & gifts", "Honeymoon", "Legal & admin", "Other"];
   const STAGES = [["researching", "Researching"], ["contacted", "Contacted"], ["quoted", "Quote in hand"], ["booked", "Booked"], ["passed", "Passed"]];
   const DSTATUS = [["open", "Open"], ["leaning", "Leaning"], ["decided", "Decided"]];
+  const PQ_CATS = [["venue", "Venue"], ["food", "Food & drink"], ["photo", "Photography"], ["video", "Videography"], ["music", "Music & dancing"], ["flowers", "Flowers & decor"], ["attire", "Attire"], ["guestexp", "Guest experience"], ["rings", "Rings"], ["honeymoon", "Honeymoon"]];
+  const PQ_LEVELS = [["splurge", "Splurge"], ["standard", "Standard"], ["save", "Save"], ["skip", "Skip"]];
+  const PQ_VIBES = ["Romantic", "Elegant", "Relaxed", "Rustic", "Modern", "Garden", "Beach", "City", "Black-tie", "Boho", "Intimate", "Big party", "Cultural traditions", "Destination"];
+  const PQ_SEASONS = ["Spring", "Summer", "Fall", "Winter"];
+  const PQ_TIMING = [["lt12", "Within a year"], ["12to18", "12–18 months"], ["18to24", "18–24 months"], ["gt24", "More than 2 years"], ["open", "No preference"]];
+  const PQ_LOCATION = [["local", "Near where we live"], ["hometown", "One of our hometowns"], ["destination", "A destination wedding"], ["open", "Open to anything"]];
+  const PQ_CEREMONY = [["religious", "Religious"], ["civil", "Civil, non-religious"], ["blend", "A blend of traditions"], ["unsure", "Not sure yet"]];
   const IDEA_TAGS = ["Ceremony", "Reception", "Attire", "Flowers", "Stationery", "Food & drink", "Music", "Palette", "Other"];
 
   // ---------- state ----------
   const S = { settings: {}, decisions: [], tasks: [], budget: [], vendors: [], ideas: [], research: [], loaded: false };
   let db = null, readOnly = false;
+  // Priorities: shared status docs at prio/<uid>; private answers at data/users/<uid>/priorities
+  S.prio = []; S.myPrio = null;
+  let uid = null, amOwner = false, prioReady = false;
+  const dirty = new Map(); // unsaved form input by element id, re-applied after every render
   const store = {
     get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} },
@@ -74,6 +85,12 @@
     db = window.claude?.use ? await window.claude.use("db") : null;
     if (!db) { renderNotice(); return; }
     db.doc("meta/settings").onSnapshot((s) => { S.settings = s.exists ? { ...s.data() } : {}; S.loaded = true; render(); }, () => {});
+    const user = await window.claude.use("user");
+    uid = user ? await user.id() : null;
+    amOwner = user ? await user.isOwner() : false;
+    db.collection("prio").onSnapshot((snap) => { S.prio = snap.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, () => {});
+    if (uid) db.doc(`data/users/${uid}/priorities`).onSnapshot((s) => { S.myPrio = s.exists ? { ...s.data() } : null; prioReady = true; render(); }, () => { prioReady = true; render(); });
+    else { prioReady = true; render(); }
     for (const c of ["decisions", "tasks", "budget", "vendors", "ideas", "research"]) {
       db.collection(c).onSnapshot((snap) => {
         S[c] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -138,15 +155,22 @@
     renderMast();
     document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
     const v = $("#view");
-    const views = { basics: viewBasics, tasks: viewTasks, budget: viewBudget, vendors: viewVendors, ideas: viewIdeas };
+    const views = { basics: viewBasics, priorities: viewPriorities, tasks: viewTasks, budget: viewBudget, vendors: viewVendors, ideas: viewIdeas };
+    const act = document.activeElement;
+    const focusId = act && act.id && v.contains(act) ? act.id : null;
     v.innerHTML = (views[tab] || viewTasks)();
+    for (const [id, st] of dirty) {
+      const el = document.getElementById(id); if (!el) continue;
+      if ("checked" in st) el.checked = st.checked; else el.value = st.value;
+    }
+    if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
   }
 
   function viewBasics() {
     const s = S.settings;
     const ds = [...S.decisions].sort(byOrder);
     return `
-      <form class="panel basics" id="basicsForm">
+      <form class="panel basics" id="basicsForm" data-preserve>
         <div class="head"><h3>The basics</h3><span class="muted" style="font-size:13px">Everything else is planned around these.</span></div>
         <label class="f">Your name<input id="b-me" name="myName" value="${esc(s.myName || "Samuel")}"></label>
         <label class="f">Partner's name<input id="b-partner" name="partnerName" value="${esc(s.partnerName || "")}" placeholder="Partner"></label>
@@ -368,6 +392,154 @@
       </div>`).join("")}</div>`;
   }
 
+  // ---------- priorities ----------
+  const lbl = (pairs, k) => (pairs.find(([v]) => v === k) || [, ""])[1];
+  const myPerson = () => amOwner ? "me" : "partner";
+  const nameOf = (person) => person === "me" ? me() : partner();
+  const mine = () => S.prio.find((d) => d.id === uid) || null;
+  const theirs = () => { const o = S.prio.filter((d) => d.id !== uid); return o.find((d) => d.person !== myPerson()) || o[0] || null; };
+  const statusText = (d) => !d ? "Not started" : d.revealed ? "Revealed" : d.status === "done" ? "Done, answers sealed" : "In progress";
+  function clearDirty(prefix) { for (const k of [...dirty.keys()]) if (k.startsWith(prefix)) dirty.delete(k); }
+
+  function readPrioForm() {
+    const f = $("#prioForm"); if (!f) return null;
+    const val = (id) => (document.getElementById(id)?.value || "").trim();
+    const checked = (name) => [...f.querySelectorAll(`input[name="${name}"]:checked`)].map((i) => i.value);
+    const cats = {};
+    for (const [k] of PQ_CATS) { const c = f.querySelector(`input[name="pq-cat-${k}"]:checked`); if (c) cats[k] = c.value; }
+    return {
+      guests: num(val("pq-guests")), budget: num(val("pq-budget")),
+      timing: val("pq-timing"), seasons: checked("pq-season"), location: val("pq-location"), ceremony: val("pq-ceremony"),
+      vibes: checked("pq-vibe"), cats,
+      mustHaves: [val("pq-must1"), val("pq-must2"), val("pq-must3")].filter(Boolean),
+      noWay: val("pq-noway"), remember: val("pq-remember"),
+    };
+  }
+
+  async function prioWrite(status, revealed, answers) {
+    if (!db || !uid) { toast("Sign in on claude.ai to save your answers."); return false; }
+    try {
+      if (answers) await db.doc(`data/users/${uid}/priorities`).set({ answers, updatedAt: new Date().toISOString() });
+      const body = { person: myPerson(), status, revealed };
+      if (revealed) body.answers = answers || S.myPrio?.answers || {};
+      await db.doc(`prio/${uid}`).set(body);
+      return true;
+    } catch (e) { writeFailed(e); return false; }
+  }
+
+  function viewPriorities() {
+    const intro = `<div class="bar"><h2>Our priorities</h2></div>
+      <p class="lede">Before you make the big decisions, each of you answers the same questions on your own: guest count, budget, vibe, and where you'd splurge or save. Your answers stay private. When you've both finished, you each tap reveal, and the planner shows where you already agree and what's worth talking through.</p>`;
+    if (!prioReady) return intro + `<div class="empty"><strong>Loading…</strong>Checking who's here.</div>`;
+    if (!db || !uid) return intro + `<div class="notice">Open the planner on claude.ai while signed in to fill in your answers.</div>`;
+    const m = mine(), t = theirs();
+    const partnerName = t ? nameOf(t.person) : nameOf(myPerson() === "me" ? "partner" : "me");
+    const people = `<div class="who-row">
+      <div class="panel whocard"><span class="eyebrow">You · ${esc(nameOf(myPerson()))}</span><b>${statusText(m)}</b></div>
+      <div class="panel whocard"><span class="eyebrow">${esc(partnerName)}</span><b>${statusText(t)}</b></div></div>`;
+    const bothDone = m?.status === "done" && t?.status === "done";
+    if (m?.revealed && t?.revealed) return intro + people + viewComparison(m, t);
+    if (m?.status !== "done") return intro + people + prioForm();
+    let state;
+    if (!bothDone) state = `<div class="panel stateCard"><h3>Your answers are sealed</h3><p>Waiting for ${esc(partnerName)} to finish. Nobody can see your answers until you've both tapped reveal.</p>
+      <div class="acts"><button class="btn" data-prio="edit">Edit my answers</button></div></div>`;
+    else if (!m.revealed) state = `<div class="panel stateCard"><h3>You've both finished</h3><p>Tap reveal when you're ready. You'll see the comparison once ${esc(partnerName)} reveals too.</p>
+      <div class="acts"><button class="btn primary" data-prio="reveal">Reveal my answers</button><button class="btn" data-prio="edit">Edit my answers first</button></div></div>`;
+    else state = `<div class="panel stateCard"><h3>You've revealed</h3><p>Waiting for ${esc(partnerName)} to tap reveal. The comparison appears here as soon as they do.</p></div>`;
+    return intro + people + state;
+  }
+
+  function prioForm() {
+    const a = S.myPrio?.answers || {};
+    const radioSeg = (name, pairs, cur) => `<div class="seg" role="radiogroup">${pairs.map(([v, l]) => `<input type="radio" id="${name}-${v}" name="${name}" value="${v}"${cur === v ? " checked" : ""}><label for="${name}-${v}">${esc(l)}</label>`).join("")}</div>`;
+    const sel = (id, pairs, cur) => `<select id="${id}"><option value="">Choose one</option>${opt(pairs, cur)}</select>`;
+    const checks = (name, list, cur = []) => `<div class="chips">${list.map((x) => { const id = `${name}-${x.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`; return `<input type="checkbox" id="${id}" name="${name}" value="${esc(x)}"${cur.includes(x) ? " checked" : ""}><label for="${id}">${esc(x)}</label>`; }).join("")}</div>`;
+    const must = a.mustHaves || [];
+    return `<form class="panel prioform" id="prioForm" data-preserve>
+      <p class="muted" style="margin:0;font-size:14px">Answer for yourself, not for what you think ${esc(nameOf(myPerson() === "me" ? "partner" : "me"))} wants. Your draft is saved privately, only you can see it.</p>
+      <fieldset><legend>The numbers</legend>
+        <div class="row2">
+          <label class="f">How many guests do you picture?<input id="pq-guests" type="number" min="0" step="5" value="${esc(a.guests ?? "")}"></label>
+          <label class="f">Total budget you'd be comfortable with (USD)<input id="pq-budget" type="number" min="0" step="500" value="${esc(a.budget ?? "")}"></label>
+        </div></fieldset>
+      <fieldset><legend>When and where</legend>
+        <div class="row2">
+          <label class="f">How soon would you like to get married?${sel("pq-timing", PQ_TIMING, a.timing)}</label>
+          <label class="f">Where?${sel("pq-location", PQ_LOCATION, a.location)}</label>
+          <label class="f">Ceremony style${sel("pq-ceremony", PQ_CEREMONY, a.ceremony)}</label>
+        </div>
+        <div class="f-label">Seasons you'd love (pick any)</div>${checks("pq-season", PQ_SEASONS, a.seasons)}
+      </fieldset>
+      <fieldset><legend>The feel</legend>
+        <div class="f-label">Pick up to 5 words that fit the wedding you picture</div>${checks("pq-vibe", PQ_VIBES, a.vibes)}
+      </fieldset>
+      <fieldset><legend>Splurge or save?</legend>
+        <div class="cats">${PQ_CATS.map(([k, l]) => `<div class="catrow"><span>${esc(l)}</span>${radioSeg(`pq-cat-${k}`, PQ_LEVELS, (a.cats || {})[k])}</div>`).join("")}</div>
+      </fieldset>
+      <fieldset><legend>In your own words</legend>
+        <div class="f-label">Your three must-haves</div>
+        <div class="row3">
+          <input id="pq-must1" aria-label="Must-have 1" value="${esc(must[0] || "")}" placeholder="1.">
+          <input id="pq-must2" aria-label="Must-have 2" value="${esc(must[1] || "")}" placeholder="2.">
+          <input id="pq-must3" aria-label="Must-have 3" value="${esc(must[2] || "")}" placeholder="3.">
+        </div>
+        <label class="f">Anything that's an absolute no?<textarea id="pq-noway">${esc(a.noWay || "")}</textarea></label>
+        <label class="f">What's the one thing you want guests to remember?<textarea id="pq-remember">${esc(a.remember || "")}</textarea></label>
+      </fieldset>
+      <div class="acts"><button type="button" class="btn" data-prio="draft">Save draft</button><button type="button" class="btn primary" data-prio="done">I'm done, seal my answers</button></div>
+    </form>`;
+  }
+
+  function viewComparison(m, t) {
+    // Columns follow the name order on the masthead: partner first, then Samuel
+    const [L, R] = m.person === "partner" ? [m, t] : [t, m];
+    const A = L.answers || {}, B = R.answers || {};
+    const nL = nameOf(L.person), nR = nameOf(R.person);
+    const has = (x) => x != null && x !== "" && !(Array.isArray(x) && !x.length);
+    const numV = (x, y) => { if (!has(x) || !has(y)) return null; const r = Math.abs(x - y) / Math.max(x, y, 1); return r <= .15 ? "agree" : r <= .35 ? "close" : "talk"; };
+    const eqV = (x, y, soft) => { if (!has(x) || !has(y)) return null; if (x === y) return "agree"; return soft.includes(x) || soft.includes(y) ? "close" : "talk"; };
+    const ordV = (x, y, order, soft) => { if (!has(x) || !has(y)) return null; if (x === y) return "agree"; if (soft.includes(x) || soft.includes(y)) return "close"; return Math.abs(order.indexOf(x) - order.indexOf(y)) === 1 ? "close" : "talk"; };
+    const setV = (x, y, agreeAt) => { if (!has(x) || !has(y)) return null; const n = x.filter((v) => y.includes(v)).length; return n >= agreeAt || (n && n === Math.min(x.length, y.length)) ? "agree" : n ? "close" : "talk"; };
+    const list = (arr, both) => has(arr) ? arr.map((v) => both.includes(v) ? `<b>${esc(v)}</b>` : esc(v)).join(", ") : "—";
+    const rows = [
+      { q: "Guest count", a: has(A.guests) ? esc(A.guests) : "—", b: has(B.guests) ? esc(B.guests) : "—", v: numV(A.guests, B.guests) },
+      { q: "Total budget", a: has(A.budget) ? money(A.budget) : "—", b: has(B.budget) ? money(B.budget) : "—", v: numV(A.budget, B.budget) },
+      { q: "How soon", a: lbl(PQ_TIMING, A.timing) || "—", b: lbl(PQ_TIMING, B.timing) || "—", v: ordV(A.timing, B.timing, ["lt12", "12to18", "18to24", "gt24"], ["open"]) },
+      { q: "Season", a: list(A.seasons, B.seasons || []), b: list(B.seasons, A.seasons || []), v: setV(A.seasons, B.seasons, 1) },
+      { q: "Where", a: lbl(PQ_LOCATION, A.location) || "—", b: lbl(PQ_LOCATION, B.location) || "—", v: eqV(A.location, B.location, ["open"]) },
+      { q: "Ceremony", a: lbl(PQ_CEREMONY, A.ceremony) || "—", b: lbl(PQ_CEREMONY, B.ceremony) || "—", v: eqV(A.ceremony, B.ceremony, ["unsure"]) },
+      { q: "The feel", a: list(A.vibes, B.vibes || []), b: list(B.vibes, A.vibes || []), v: setV(A.vibes, B.vibes, 2) },
+      ...PQ_CATS.map(([k, l]) => { const x = (A.cats || {})[k], y = (B.cats || {})[k];
+        return { q: l, cat: true, a: lbl(PQ_LEVELS, x) || "—", b: lbl(PQ_LEVELS, y) || "—", v: ordV(x, y, ["splurge", "standard", "save", "skip"], []) }; }),
+    ];
+    const scored = rows.filter((r) => r.v);
+    const n = (k) => scored.filter((r) => r.v === k).length;
+    const talk = scored.filter((r) => r.v === "talk");
+    const pill = (v) => v === "agree" ? `<span class="pill">Agree</span>` : v === "close" ? `<span class="pill quiet">Close</span>` : v === "talk" ? `<span class="pill leaning">Talk about it</span>` : "";
+    const row = (r) => `<tr class="v-${r.v || "none"}"><th scope="row">${esc(r.q)}</th><td>${r.a}</td><td>${r.b}</td><td>${pill(r.v)}</td></tr>`;
+    const words = (label, x, y) => `<div class="words"><div class="eyebrow">${label}</div><div class="pair"><div><span class="by">${esc(nL)}</span>${x || "—"}</div><div><span class="by">${esc(nR)}</span>${y || "—"}</div></div></div>`;
+    const ol = (arr) => has(arr) ? `<ol>${arr.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : "";
+    return `
+      <div class="kpis">
+        <div class="panel kpi"><div class="eyebrow">You agree on</div><div class="v num">${n("agree")} <span class="muted" style="font-size:16px">of ${scored.length}</span></div></div>
+        <div class="panel kpi"><div class="eyebrow">Close</div><div class="v num">${n("close")}</div></div>
+        <div class="panel kpi"><div class="eyebrow">Worth a talk</div><div class="v num" style="color:var(--rose)">${n("talk")}</div></div>
+      </div>
+      ${talk.length ? `<section class="panel stateCard talkfirst"><h3>Start with these conversations</h3><p>These are the furthest apart. Agreeing on them first will make the rest of the decisions easier.</p><ul>${talk.slice(0, 5).map((r) => `<li><b>${esc(r.q)}:</b> ${esc(nL)} said ${r.a.replace(/<[^>]+>/g, "")}, ${esc(nR)} said ${r.b.replace(/<[^>]+>/g, "")}.</li>`).join("")}</ul></section>`
+        : `<section class="panel stateCard talkfirst"><h3>You're remarkably in sync</h3><p>Nothing is far apart. You can move straight to setting your basics under Big decisions.</p></section>`}
+      <div class="panel tablewrap"><table class="cmpq">
+        <thead><tr><th>Question</th><th>${esc(nL)}</th><th>${esc(nR)}</th><th></th></tr></thead>
+        <tbody>${rows.filter((r) => !r.cat).map(row).join("")}
+        <tr class="sub"><th colspan="4">Splurge or save?</th></tr>${rows.filter((r) => r.cat).map(row).join("")}</tbody></table></div>
+      <div class="wordsgrid">
+        ${words("Must-haves", ol(A.mustHaves), ol(B.mustHaves))}
+        ${words("Absolutely not", esc(A.noWay || ""), esc(B.noWay || ""))}
+        ${words("What guests should remember", esc(A.remember || ""), esc(B.remember || ""))}
+      </div>
+      <div class="acts" style="margin-top:16px"><button class="btn" data-prio="edit">Change my answers</button>
+        <span class="muted" style="font-size:13px">Changing your answers hides the comparison until you reveal again.</span></div>`;
+  }
+
   function emptyState(title, body) {
     return `<div class="empty"><strong>${esc(title)}</strong>${esc(body)}</div>`;
   }
@@ -519,6 +691,30 @@
     if (t.dataset.add) { openEditor(t.dataset.add); return; }
     if (t.dataset.edit) { openEditor(t.dataset.edit, t.dataset.id); }
   });
+  const trackDirty = (e) => {
+    const el = e.target; if (!el.id || !el.closest("[data-preserve]")) return;
+    if (el.type === "radio") document.getElementsByName(el.name).forEach((r) => { if (r.id) dirty.set(r.id, { checked: r.checked }); });
+    else if (el.type === "checkbox") dirty.set(el.id, { checked: el.checked });
+    else dirty.set(el.id, { value: el.value });
+  };
+  document.addEventListener("input", trackDirty);
+  document.addEventListener("change", trackDirty);
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-prio]"); if (!b) return;
+    const act = b.dataset.prio;
+    if (act === "draft" || act === "done") {
+      const answers = readPrioForm(); if (!answers) return;
+      b.disabled = true;
+      const ok = await prioWrite(act === "done" ? "done" : "started", false, answers);
+      b.disabled = false;
+      if (ok) { clearDirty("pq-"); toast(act === "done" ? "Sealed. Nobody can see them until you both reveal." : "Draft saved privately"); }
+    } else if (act === "edit") {
+      if (await prioWrite("started", false)) toast("Your answers are open for editing");
+    } else if (act === "reveal") {
+      if (!S.myPrio?.answers) { toast("Couldn't find your saved answers. Edit and seal them again."); return; }
+      if (await prioWrite("done", true)) toast("Revealed");
+    }
+  });
   document.addEventListener("change", async (e) => {
     const id = e.target.dataset?.toggle; if (!id) return;
     await save("tasks", id, { done: e.target.checked });
@@ -533,7 +729,7 @@
       location: f.location.value.trim(),
     };
     if (!db) { toast("Saving isn't available in this view."); return; }
-    try { await db.doc("meta/settings").set({ ...S.settings, ...data }); toast("Basics saved"); }
+    try { await db.doc("meta/settings").set({ ...S.settings, ...data }); clearDirty("b-"); toast("Basics saved"); }
     catch (err) { writeFailed(err); }
   });
 
