@@ -25,9 +25,10 @@
   // ---------- state ----------
   const S = { settings: {}, decisions: [], tasks: [], budget: [], vendors: [], ideas: [], research: [], loaded: false };
   let db = null, readOnly = false;
-  // Priorities: shared status docs at prio/<uid>; private answers at data/users/<uid>/priorities
-  S.prio = []; S.myPrio = null;
-  let uid = null, amOwner = false, prioReady = false;
+  // Priorities: one doc per person at prio/partner and prio/me (not tied to accounts, so you can
+  // take turns on one computer); reveal state at meta/priorities
+  S.prio = []; S.prioMeta = {};
+  let prioWho = null; // whose questionnaire is open on this screen right now
   const dirty = new Map(); // unsaved form input by element id, re-applied after every render
   const store = {
     get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
@@ -85,12 +86,8 @@
     db = window.claude?.use ? await window.claude.use("db") : null;
     if (!db) { renderNotice(); return; }
     db.doc("meta/settings").onSnapshot((s) => { S.settings = s.exists ? { ...s.data() } : {}; S.loaded = true; render(); }, () => {});
-    const user = await window.claude.use("user");
-    uid = user ? await user.id() : null;
-    amOwner = user ? await user.isOwner() : false;
-    db.collection("prio").onSnapshot((snap) => { S.prio = snap.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, () => {});
-    if (uid) db.doc(`data/users/${uid}/priorities`).onSnapshot((s) => { S.myPrio = s.exists ? { ...s.data() } : null; prioReady = true; render(); }, () => { prioReady = true; render(); });
-    else { prioReady = true; render(); }
+    db.collection("prio").onSnapshot((snap) => { S.prio = snap.docs.map((d) => ({ id: d.id, person: d.id, ...d.data() })); render(); }, () => {});
+    db.doc("meta/priorities").onSnapshot((s) => { S.prioMeta = s.exists ? { ...s.data() } : {}; render(); }, () => {});
     for (const c of ["decisions", "tasks", "budget", "vendors", "ideas", "research"]) {
       db.collection(c).onSnapshot((snap) => {
         S[c] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -394,11 +391,11 @@
 
   // ---------- priorities ----------
   const lbl = (pairs, k) => (pairs.find(([v]) => v === k) || [, ""])[1];
-  const myPerson = () => amOwner ? "me" : "partner";
   const nameOf = (person) => person === "me" ? me() : partner();
-  const mine = () => S.prio.find((d) => d.id === uid) || null;
-  const theirs = () => { const o = S.prio.filter((d) => d.id !== uid); return o.find((d) => d.person !== myPerson()) || o[0] || null; };
-  const statusText = (d) => !d ? "Not started" : d.revealed ? "Revealed" : d.status === "done" ? "Done, answers sealed" : "In progress";
+  const otherOf = (person) => person === "me" ? "partner" : "me";
+  const PEOPLE = ["partner", "me"]; // masthead order: Alejandra first
+  const prioDoc = (who) => S.prio.find((d) => d.id === who) || null;
+  const statusText = (d) => !d ? "Not started" : d.status === "done" ? "Sealed" : "In progress";
   function clearDirty(prefix) { for (const k of [...dirty.keys()]) if (k.startsWith(prefix)) dirty.delete(k); }
 
   function readPrioForm() {
@@ -416,47 +413,53 @@
     };
   }
 
-  async function prioWrite(status, revealed, answers) {
-    if (!db || !uid) { toast("Sign in on claude.ai to save your answers."); return false; }
+  async function prioSave(who, status, answers) {
+    if (!db) { toast("Saving isn't available in this view."); return false; }
     try {
-      if (answers) await db.doc(`data/users/${uid}/priorities`).set({ answers, updatedAt: new Date().toISOString() });
-      const body = { person: myPerson(), status, revealed };
-      if (revealed) body.answers = answers || S.myPrio?.answers || {};
-      await db.doc(`prio/${uid}`).set(body);
+      const body = { status, updatedAt: new Date().toISOString() };
+      body.answers = answers || prioDoc(who)?.answers || {};
+      await db.doc(`prio/${who}`).set(body);
+      if (status !== "done" && S.prioMeta.revealed) await db.doc("meta/priorities").set({ revealed: false });
       return true;
     } catch (e) { writeFailed(e); return false; }
   }
 
   function viewPriorities() {
     const intro = `<div class="bar"><h2>Our priorities</h2></div>
-      <p class="lede">Before you make the big decisions, each of you answers the same questions on your own: guest count, budget, vibe, and where you'd splurge or save. Your answers stay private. When you've both finished, you each tap reveal, and the planner shows where you already agree and what's worth talking through.</p>`;
-    if (!prioReady) return intro + `<div class="empty"><strong>Loading…</strong>Checking who's here.</div>`;
-    if (!db || !uid) return intro + `<div class="notice">Open the planner on claude.ai while signed in to fill in your answers.</div>`;
-    const m = mine(), t = theirs();
-    const partnerName = t ? nameOf(t.person) : nameOf(myPerson() === "me" ? "partner" : "me");
-    const people = `<div class="who-row">
-      <div class="panel whocard"><span class="eyebrow">You · ${esc(nameOf(myPerson()))}</span><b>${statusText(m)}</b></div>
-      <div class="panel whocard"><span class="eyebrow">${esc(partnerName)}</span><b>${statusText(t)}</b></div></div>`;
-    const bothDone = m?.status === "done" && t?.status === "done";
-    if (m?.revealed && t?.revealed) return intro + people + viewComparison(m, t);
-    if (m?.status !== "done") return intro + people + prioForm();
-    let state;
-    if (!bothDone) state = `<div class="panel stateCard"><h3>Your answers are sealed</h3><p>Waiting for ${esc(partnerName)} to finish. Nobody can see your answers until you've both tapped reveal.</p>
-      <div class="acts"><button class="btn" data-prio="edit">Edit my answers</button></div></div>`;
-    else if (!m.revealed) state = `<div class="panel stateCard"><h3>You've both finished</h3><p>Tap reveal when you're ready. You'll see the comparison once ${esc(partnerName)} reveals too.</p>
-      <div class="acts"><button class="btn primary" data-prio="reveal">Reveal my answers</button><button class="btn" data-prio="edit">Edit my answers first</button></div></div>`;
-    else state = `<div class="panel stateCard"><h3>You've revealed</h3><p>Waiting for ${esc(partnerName)} to tap reveal. The comparison appears here as soon as they do.</p></div>`;
-    return intro + people + state;
+      <p class="lede">Before you make the big decisions, each of you answers the same questions on your own: guest count, budget, vibe, and where you'd splurge or save. Take turns on this computer, or ${esc(partner())} can open the planner from her own account. Sealed answers stay hidden until you reveal them together.</p>`;
+    if (!db) return intro + `<div class="empty"><strong>Loading…</strong>Connecting to your planner.</div>`;
+    const done = (w) => prioDoc(w)?.status === "done";
+    const bothDone = done("partner") && done("me");
+    if (bothDone && S.prioMeta.revealed) return intro + viewComparison(prioDoc("partner"), prioDoc("me"));
+
+    const card = (w) => {
+      const d = prioDoc(w), n = esc(nameOf(w));
+      let action;
+      if (prioWho === w) action = `<span class="pill leaning">Answering now</span>`;
+      else if (d?.status === "done") action = `<button class="linkbtn" data-prio="reopen" data-who="${w}">Reopen</button>`;
+      else action = `<button class="btn primary" data-prio="open" data-who="${w}">${d ? "Continue" : "Start"} as ${n}</button>`;
+      return `<div class="panel whocard${prioWho === w ? " active" : ""}"><div><span class="eyebrow">${n}</span><b>${statusText(d)}</b></div>${action}</div>`;
+    };
+    const people = `<div class="who-row">${PEOPLE.map(card).join("")}</div>`;
+
+    let body;
+    if (prioWho) body = prioForm(prioWho);
+    else if (bothDone) body = `<div class="panel stateCard talkfirst"><h3>You've both finished</h3><p>Sit down together, then reveal. You'll see where you agree and what's worth talking about.</p>
+      <div class="acts"><button class="btn primary" data-prio="reveal">Reveal our answers</button></div></div>`;
+    else body = `<div class="panel stateCard"><h3>Who's answering?</h3><p>Pick your name above. When you finish, seal your answers and hand the computer over. Sealed answers are hidden from the other person.</p>
+      <p class="muted" style="font-size:13px">This works on the honor system: anyone using the planner could reopen a sealed section, so no peeking.</p></div>`;
+    return intro + people + body;
   }
 
-  function prioForm() {
-    const a = S.myPrio?.answers || {};
+  function prioForm(who) {
+    const a = prioDoc(who)?.answers || {};
     const radioSeg = (name, pairs, cur) => `<div class="seg" role="radiogroup">${pairs.map(([v, l]) => `<input type="radio" id="${name}-${v}" name="${name}" value="${v}"${cur === v ? " checked" : ""}><label for="${name}-${v}">${esc(l)}</label>`).join("")}</div>`;
     const sel = (id, pairs, cur) => `<select id="${id}"><option value="">Choose one</option>${opt(pairs, cur)}</select>`;
     const checks = (name, list, cur = []) => `<div class="chips">${list.map((x) => { const id = `${name}-${x.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`; return `<input type="checkbox" id="${id}" name="${name}" value="${esc(x)}"${cur.includes(x) ? " checked" : ""}><label for="${id}">${esc(x)}</label>`; }).join("")}</div>`;
     const must = a.mustHaves || [];
     return `<form class="panel prioform" id="prioForm" data-preserve>
-      <p class="muted" style="margin:0;font-size:14px">Answer for yourself, not for what you think ${esc(nameOf(myPerson() === "me" ? "partner" : "me"))} wants. Your draft is saved privately, only you can see it.</p>
+      <div class="formhead"><h3>${esc(nameOf(who))}'s answers</h3><button type="button" class="btn" data-prio="close">Save and hide</button></div>
+      <p class="muted" style="margin:0;font-size:14px">Answer for yourself, not for what you think ${esc(nameOf(otherOf(who)))} wants.</p>
       <fieldset><legend>The numbers</legend>
         <div class="row2">
           <label class="f">How many guests do you picture?<input id="pq-guests" type="number" min="0" step="5" value="${esc(a.guests ?? "")}"></label>
@@ -536,8 +539,8 @@
         ${words("Absolutely not", esc(A.noWay || ""), esc(B.noWay || ""))}
         ${words("What guests should remember", esc(A.remember || ""), esc(B.remember || ""))}
       </div>
-      <div class="acts" style="margin-top:16px"><button class="btn" data-prio="edit">Change my answers</button>
-        <span class="muted" style="font-size:13px">Changing your answers hides the comparison until you reveal again.</span></div>`;
+      <div class="acts" style="margin-top:16px">${PEOPLE.map((w) => `<button class="btn" data-prio="reopen" data-who="${w}">Change ${esc(nameOf(w))}'s answers</button>`).join("")}
+        <span class="muted" style="font-size:13px">Changing answers hides the comparison until you reveal again.</span></div>`;
   }
 
   function emptyState(title, body) {
@@ -701,18 +704,28 @@
   document.addEventListener("change", trackDirty);
   document.addEventListener("click", async (e) => {
     const b = e.target.closest("[data-prio]"); if (!b) return;
-    const act = b.dataset.prio;
-    if (act === "draft" || act === "done") {
-      const answers = readPrioForm(); if (!answers) return;
+    const act = b.dataset.prio, who = b.dataset.who;
+    const scrollToForm = () => document.getElementById("prioForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (act === "open") {
+      if (prioWho && prioWho !== who) { const cur = readPrioForm(); if (cur) await prioSave(prioWho, "started", cur); }
+      clearDirty("pq-"); prioWho = who; render(); scrollToForm();
+    } else if (act === "draft" || act === "done" || act === "close") {
+      const answers = readPrioForm(); if (!answers || !prioWho) return;
+      const w = prioWho;
       b.disabled = true;
-      const ok = await prioWrite(act === "done" ? "done" : "started", false, answers);
+      const ok = await prioSave(w, act === "done" ? "done" : "started", answers);
       b.disabled = false;
-      if (ok) { clearDirty("pq-"); toast(act === "done" ? "Sealed. Nobody can see them until you both reveal." : "Draft saved privately"); }
-    } else if (act === "edit") {
-      if (await prioWrite("started", false)) toast("Your answers are open for editing");
+      if (!ok) return;
+      clearDirty("pq-");
+      if (act === "draft") { toast("Draft saved"); return; }
+      prioWho = null; render(); window.scrollTo({ top: 0, behavior: "smooth" });
+      toast(act === "done" ? `Sealed. Hand over to ${nameOf(otherOf(w))}.` : "Saved and hidden");
+    } else if (act === "reopen") {
+      if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = `Only ${nameOf(who)}: tap again`; return; }
+      if (prioWho && prioWho !== who) { const cur = readPrioForm(); if (cur) await prioSave(prioWho, "started", cur); }
+      if (await prioSave(who, "started")) { clearDirty("pq-"); prioWho = who; render(); scrollToForm(); }
     } else if (act === "reveal") {
-      if (!S.myPrio?.answers) { toast("Couldn't find your saved answers. Edit and seal them again."); return; }
-      if (await prioWrite("done", true)) toast("Revealed");
+      try { await db.doc("meta/priorities").set({ revealed: true }); toast("Revealed"); } catch (err) { writeFailed(err); }
     }
   });
   document.addEventListener("change", async (e) => {

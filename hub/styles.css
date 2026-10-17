@@ -237,3 +237,10 @@ pre.email { white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.55 var(
 .words .pair > div { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; min-width: 0; overflow-wrap: anywhere; }
 .words .by { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
 .words ol { margin: 0; padding-left: 1.2em; }
+.whocard { grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
+.whocard.active { border-color: var(--rose-bright); box-shadow: 0 0 0 2px var(--rose-soft); }
+.linkbtn { background: none; border: 0; padding: 4px 0; color: var(--muted); font-size: 13px; text-decoration: underline; }
+.linkbtn.armed { color: var(--rose); font-weight: 700; }
+.formhead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.formhead h3 { font-size: 24px; }
+.whocard > div { display: grid; gap: 2px; min-width: 0; }
