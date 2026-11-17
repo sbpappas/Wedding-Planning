@@ -110,6 +110,10 @@ label.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .task.done .t .title { text-decoration: line-through; color: var(--muted); }
 .task .meta { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .late { color: var(--danger); font-weight: 700; }
+.taskside { display: grid; justify-items: end; gap: 2px; }
+.taskside .linkbtn { font-size: 12px; padding: 0; }
+.task.skipped .title { color: var(--muted); }
+.task.skipped .meta { opacity: .7; }
 .who { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
 
 /* Budget */

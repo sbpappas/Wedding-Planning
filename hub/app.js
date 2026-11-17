@@ -1,6 +1,7 @@
 (() => {
   // ---------- constants ----------
   const BUCKETS = [
+    { key: "catch", label: "Catch-up plan", dueMonths: 0, startMonths: 24 }, // tasks here carry exact due dates
     { key: "m12", label: "12+ months out", dueMonths: 12, startMonths: 24 },
     { key: "m9",  label: "9–11 months out", dueMonths: 9, startMonths: 12 },
     { key: "m6",  label: "6–8 months out", dueMonths: 6, startMonths: 9 },
@@ -67,7 +68,7 @@
     const w = weddingDate(); if (!w) return null;
     return minusMonths(w, bucketOf(task.bucket).dueMonths);
   };
-  const isLate = (t) => { if (t.done) return false; const d = dueFor(t); return d && d < today(); };
+  const isLate = (t) => { if (t.done || t.skipped) return false; const d = dueFor(t); return d && d < today(); };
   const byOrder = (a, b) => (a.order ?? 999) - (b.order ?? 999) || String(a.title || a.name || a.category || "").localeCompare(String(b.title || b.name || b.category || ""));
 
   function toast(msg) {
@@ -123,7 +124,8 @@
         : `<div class="big num">${-days}</div><div class="lbl">days married</div>`;
     } else $("#count").innerHTML = `<div class="lbl">Set your date under<br>Big decisions</div>`;
 
-    const total = S.tasks.length, done = S.tasks.filter((t) => t.done).length, late = S.tasks.filter(isLate).length;
+    const active = S.tasks.filter((t) => !t.skipped);
+    const total = active.length, done = active.filter((t) => t.done).length, late = S.tasks.filter(isLate).length;
     const decided = S.decisions.filter((d) => d.status === "decided").length;
     const chips = [];
     if (S.decisions.length) chips.push(`<span class="chip"><b class="num">${decided}/${S.decisions.length}</b> big decisions made</span>`);
@@ -191,38 +193,46 @@
 
   function viewTasks() {
     if (!S.tasks.length) return `<div class="bar"><h2>Timeline</h2><button class="btn primary" data-add="tasks">Add a task</button></div>` + emptyState("Your checklist will appear here", "Tasks are grouped by how many months before the wedding they're due. Add your first one to get started.");
-    const done = S.tasks.filter((t) => t.done).length;
+    const active = S.tasks.filter((t) => !t.skipped);
+    const done = active.filter((t) => t.done).length;
     const f = taskFilter;
-    const keep = (t) => f === "all" ? true : f === "open" ? !t.done : f === "late" ? isLate(t) : (t.owner || "both") === f;
+    const keep = (t) => f === "all" ? true : f === "skipped" ? !!t.skipped : t.skipped ? false : f === "open" ? !t.done : f === "late" ? isLate(t) : (t.owner || "both") === f;
     const w = weddingDate(), now = today();
+    const catchingUp = S.tasks.some((t) => t.bucket === "catch" && !t.done && !t.skipped);
     const groups = BUCKETS.map((b) => {
       const items = S.tasks.filter((t) => (t.bucket || "m12") === b.key && keep(t)).sort(byOrder);
       if (!items.length) return "";
       let due = "", isNow = false;
-      if (w) {
+      if (b.key === "catch") {
+        items.sort((x, y) => (dueFor(x) || 0) - (dueFor(y) || 0));
+        const last = new Date(Math.max(...items.map((t) => dueFor(t) || 0)));
+        if (w) due = `through ${fmtDate(last)}`;
+        isNow = catchingUp;
+      } else if (w) {
         const end = minusMonths(w, b.dueMonths), startD = minusMonths(w, b.startMonths);
         due = b.key === "after" ? `in the weeks after` : `by ${fmtDate(end)}`;
-        isNow = now >= startD && now <= end;
+        isNow = !catchingUp && now >= startD && now <= end;
       }
       return `<section class="group${isNow ? " now" : ""}"><header><h3>${b.label}</h3>${due ? `<span class="due">${due}</span>` : ""}${isNow ? `<span class="pill leaning">You are here</span>` : ""}</header>
         ${items.map(taskRow).join("")}</section>`;
     }).join("");
     const fb = (k, l) => `<button type="button" data-filter="${k}" aria-pressed="${f === k}">${esc(l)}</button>`;
     return `<div class="bar"><h2>Timeline</h2><button class="btn primary" data-add="tasks">Add a task</button></div>
-      <div class="progress" title="${done} of ${S.tasks.length} done"><span style="width:${(done / S.tasks.length * 100).toFixed(1)}%"></span></div>
-      <div class="bar"><div class="filters">${fb("open", "To do")}${fb("all", "All")}${fb("late", "Overdue")}${fb("me", me())}${fb("partner", partner())}${fb("both", "Both")}</div>
+      <div class="progress" title="${done} of ${active.length} done"><span style="width:${(active.length ? done / active.length * 100 : 0).toFixed(1)}%"></span></div>
+      <div class="bar"><div class="filters">${fb("open", "To do")}${fb("all", "All")}${fb("late", "Overdue")}${fb("me", me())}${fb("partner", partner())}${fb("both", "Both")}${fb("skipped", "Not needed")}</div>
       ${w ? "" : `<span class="muted" style="font-size:13px">Set a date to see due dates.</span>`}</div>
-      ${groups || emptyState("Nothing here", f === "late" ? "Nothing is overdue. Nice work." : "No tasks match this filter.")}`;
+      ${groups || emptyState("Nothing here", f === "late" ? "Nothing is overdue. Nice work." : f === "skipped" ? "Mark a task as not needed and it moves here, where you can restore it anytime." : "No tasks match this filter.")}`;
   }
   function taskRow(t) {
     const d = dueFor(t), late = isLate(t);
-    return `<div class="task${t.done ? " done" : ""}">
-      <input type="checkbox" id="chk-${esc(t.id)}" data-toggle="${esc(t.id)}" ${t.done ? "checked" : ""} aria-label="Mark ${esc(t.title)} done">
+    return `<div class="task${t.done ? " done" : ""}${t.skipped ? " skipped" : ""}">
+      <input type="checkbox" id="chk-${esc(t.id)}" data-toggle="${esc(t.id)}" ${t.done ? "checked" : ""}${t.skipped ? " disabled" : ""} aria-label="Mark ${esc(t.title)} done">
       <div class="t" data-edit="tasks" data-id="${esc(t.id)}">
         <div class="title">${esc(t.title)}</div>
         <div class="meta">${t.category ? `<span>${esc(t.category)}</span>` : ""}${d && t.due ? `<span>due ${fmtDate(d)}</span>` : ""}${late ? `<span class="late">Overdue</span>` : ""}${t.notes ? `<span>${esc(t.notes.length > 80 ? t.notes.slice(0, 80) + "…" : t.notes)}</span>` : ""}</div>
       </div>
-      <span class="who">${esc(ownerLabel(t.owner || "both"))}</span>
+      <div class="taskside"><span class="who">${esc(ownerLabel(t.owner || "both"))}</span>
+        ${t.skipped ? `<button type="button" class="linkbtn" data-skip="${esc(t.id)}" data-val="false">Restore</button>` : t.done ? "" : `<button type="button" class="linkbtn" data-skip="${esc(t.id)}" data-val="true">Not needed</button>`}</div>
     </div>`;
   }
 
@@ -558,6 +568,7 @@
       ["due", "Exact due date (optional)", "date"],
       ["notes", "Notes", "textarea"],
       ["done", "Done", "check"],
+      ["skipped", "Not needed", "check"],
     ], defaults: { bucket: "m12", owner: "both" } },
     decisions: { name: "decision", fields: () => [
       ["title", "Decision", "text"],
@@ -672,8 +683,13 @@
 
   // ---------- events ----------
   document.addEventListener("click", async (e) => {
-    const t = e.target.closest("[data-tab],[data-add],[data-edit],[data-filter],[data-vview],[data-compare],[data-copy],[data-contacted]");
+    const t = e.target.closest("[data-tab],[data-add],[data-edit],[data-filter],[data-vview],[data-compare],[data-copy],[data-contacted],[data-skip]");
     if (!t) return;
+    if (t.dataset.skip) {
+      const skipped = t.dataset.val === "true";
+      if (await save("tasks", t.dataset.skip, { skipped })) toast(skipped ? "Marked not needed. Find it under the Not needed filter." : "Restored to your timeline");
+      return;
+    }
     if (t.dataset.vview) { vendorView = t.dataset.vview; store.set("vendorView", vendorView); render(); return; }
     if (t.dataset.compare) { compareKey = t.dataset.compare; store.set("compareKey", compareKey); render(); return; }
     if (t.dataset.contacted) { if (await save("vendors", t.dataset.contacted, { stage: "contacted" })) toast("Moved to Contacted"); return; }
